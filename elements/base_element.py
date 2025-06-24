@@ -1,49 +1,66 @@
+from abc import ABC, abstractmethod
+
 import allure
-from playwright.sync_api import Page, Locator, expect
+from playwright.sync_api import expect, Locator, Page
 
-from tools.logger import get_logger
-
-logger = get_logger("BASE_ELEMENT")
+from logger import step
 
 
-class BaseElement:
-    def __init__(self, page: Page, locator: str, name: str):
-        self.page = page
-        self.name = name
-        self.locator = locator
+class BaseElement(ABC):
+    def __init__(self, page: Page, selector: str, name: str, timeout: int = None):
+        self.page: Page = page
+        self.name: str = name
+        self.selector: str = selector
+        self.timeout: int = timeout
 
     @property
+    @abstractmethod
     def type_of(self) -> str:
-        return "base element"
+        return 'element'
 
-    def get_locator(self, nth: int = 0, **kwargs) -> Locator:
-        locator = self.locator.format(**kwargs)
-        step = f'Getting locator with "data-testid={locator}" at index "{nth}"'
+    @property
+    def locator(self) -> Locator:
+        return self.page.locator(selector=self.selector).first
 
-        with allure.step(step):
-            logger.info(step)
-            return self.page.get_by_test_id(locator).nth(nth)
+    def get_locator(self, **kwargs) -> Locator:
+        selector = self.selector.format(**kwargs)
+        return self.page.locator(selector=selector).first
 
-    def click(self, nth: int = 0, **kwargs):
-        step = f'Clicking {self.type_of} "{self.name}"'
+    def get_text(self, **kwargs) -> str:
+        locator = self.get_locator(**kwargs)
+        return locator.inner_text(timeout=self.timeout)
 
-        with allure.step(step):
-            locator = self.get_locator(nth, **kwargs)
-            logger.info(step)
-            locator.click()
+    def click(self, count: int = 1) -> None:
+        text = f'Clicking {self.type_of} {self.name}'
+        with allure.step(text):
+            step.info(text)
+            self.get_locator().click(click_count=count, timeout=self.timeout)
 
-    def check_visible(self, nth: int = 0, **kwargs):
-        step = f'Checking that {self.type_of} "{self.name}" is visible'
+    def double_click(self):
+        text = f'Double-clicking {self.type_of} {self.name}'
+        with allure.step(text):
+            step.info(text)
+            self.get_locator().dblclick()
 
-        with allure.step(step):
-            locator = self.get_locator(nth, **kwargs)
-            logger.info(step)
-            expect(locator).to_be_visible()
+    def hover(self) -> None:
+        text = f'Hovering over {self.type_of} with name "{self.name}"'
+        with allure.step(text):
+            step.info(text)
+            self.get_locator().hover()
 
-    def check_have_text(self, text: str, nth: int = 0, **kwargs):
-        step = f'Checking that {self.type_of} "{self.name}" has text "{text}"'
+    def should_be_visible(self, **kwargs) -> None:
+        text = f'Checking that {self.type_of} "{self.name}" is visible'
+        with allure.step(text):
+            expect(self.get_locator()).to_be_visible(timeout=self.timeout)
 
-        with allure.step(step):
-            locator = self.get_locator(nth, **kwargs)
-            logger.info(step)
-            expect(locator).to_have_text(text)
+    def should_have_text(self, value: str, **kwargs) -> None:
+        text = f'Checking that {self.type_of} "{self.name}" has text "{value}"'
+        with allure.step(text):
+            step.info(text)
+            expect(self.get_locator(**kwargs)).to_have_text(expected=value, timeout=self.timeout)
+
+    def should_contain_text(self, value: str, **kwargs) -> None:
+        text = f'Checking that {self.type_of} "{self.name}" contains text "{value}"'
+        with allure.step(text):
+            step.info(text)
+            expect(self.get_locator(**kwargs)).to_contain_text(value, timeout=self.timeout)
