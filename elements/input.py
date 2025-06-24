@@ -1,30 +1,32 @@
 import allure
-from playwright.sync_api import Locator, expect
+from playwright.sync_api import expect
 
 from elements.base_element import BaseElement
-from tools.logger import get_logger
-
-logger = get_logger("INPUT")
+from logger import step
 
 
 class Input(BaseElement):
     @property
     def type_of(self) -> str:
-        return "input"
+        return 'input'
 
-    def get_locator(self, nth: int = 0, **kwargs) -> Locator:
-        return super().get_locator(nth, **kwargs).locator('input')
+    def fill(self, value: str | int | float, validate_value=False):
+        value = str(value)
+        text = f'Fill {self.type_of} "{self.name}" to value "{value}"'
+        with allure.step(text):
+            self.get_locator().fill(value=value, timeout=self.timeout)
+            step.info(text)
+            if validate_value:
+                self.should_have_value(value=value)
 
-    def fill(self, value: str, nth: int = 0, **kwargs):
-        step = f'Fill {self.type_of} "{self.name}" to value "{value}"'
-        with allure.step(step):
-            logger.info(step)
-            locator = self.get_locator(nth, **kwargs)
-            locator.fill(value)
+    def should_have_value(self, value: str):
+        text = f'Checking that {self.type_of} "{self.name}" has a value "{value}"'
+        with allure.step(text):
+            step.info(text)
+            expect(self.get_locator()).to_have_value(value=value, timeout=self.timeout)
 
-    def check_have_value(self, value: str, nth: int = 0, **kwargs):
-        step = f'Checking that {self.type_of} "{self.name}" has a value "{value}"'
-        with allure.step(step):
-            logger.info(step)
-            locator = self.get_locator(nth, **kwargs)
-            expect(locator).to_have_value(value)
+    def get_value(self) -> str:
+        action_text = f'Get value from {self.type_of} "{self.name}"'
+        with allure.step(action_text):
+            step.info(action_text)
+            return self.get_locator().input_value(timeout=self.timeout)
